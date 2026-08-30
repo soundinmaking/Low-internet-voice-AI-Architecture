@@ -1,0 +1,187 @@
+┌─────────────────────────────────────────────────────────────────────────────┐
+│                         1. USER ACCESS LAYER                               │
+│                                                                             │
+│   USER PHONE                                                                │
+│       │                                                                     │
+│       │ Normal Cellular Call                                                │
+│       ▼                                                                     │
+│   MOBILE RADIO / TOWER                                                      │
+│       │                                                                     │
+│       ▼                                                                     │
+│   CARRIER / IMS / PSTN                                                      │
+│                                                                             │
+│   Typical media transport contribution:                                     │
+│   GOOD:      ~30–100 ms                                                     │
+│   POOR:      ~100–300+ ms                                                    │
+│                                                                             │
+│   ⚠ Cannot fully control this layer.                                        │
+│   ⚠ Lost/corrupted audio here cannot be fully recovered later.             │
+└───────────────────────────────┬─────────────────────────────────────────────┘
+                                │
+                                ▼
+┌─────────────────────────────────────────────────────────────────────────────┐
+│                     2. TELEPHONY ACCESS LAYER                              │
+│                                                                             │
+│   TELEPHONY PROVIDER / SBC                                                  │
+│                                                                             │
+│   Call Signalling                    Media                                  │
+│   SIP / equivalent                   RTP / SRTP                             │
+│                                                                             │
+│   ┌────────────────────────────┬────────────────────────────┐               │
+│   │ CALL SETUP                 │ PER-MEDIA TRANSPORT        │               │
+│   │ ~500–3,000 ms typical      │ ~10–50 ms target          │               │
+│   └────────────────────────────┴────────────────────────────┘               │
+│                                                                             │
+│   Note: Call setup latency is mostly separate from conversation latency.    │
+└───────────────────────────────┬─────────────────────────────────────────────┘
+                                │
+                                ▼
+┌─────────────────────────────────────────────────────────────────────────────┐
+│                    3. EDGE REAL-TIME VOICE REGION                          │
+│                                                                             │
+│  ┌─────────────────────────────────────────────────────────────────────┐    │
+│  │                    REAL-TIME CALL CORE                             │    │
+│  │                                                                     │    │
+│  │ RTP Receive / Send              ~1–5 ms                            │    │
+│  │ Codec Decode                    ~1–10 ms                           │    │
+│  │ Packet Reordering               ~0–10 ms                           │    │
+│  │ Packet Loss Concealment         ~1–5 ms                            │    │
+│  │ Resample / Normalize            ~1–5 ms                            │    │
+│  │                                                                     │    │
+│  │ Adaptive Jitter Buffer:                                             │    │
+│  │ GOOD NETWORK                  ~20–60 ms                            │    │
+│  │ MEDIUM NETWORK                ~60–120 ms                           │    │
+│  │ POOR NETWORK                  ~120–250 ms                          │    │
+│  │                                                                     │    │
+│  │ TOTAL MEDIA PREP TARGET:       ~30–100 ms                          │    │
+│  │ POOR CONDITIONS:               ~150–300 ms                         │    │
+│  └──────────────────────────────┬──────────────────────────────────────┘    │
+│                                 │                                           │
+│                         NORMALIZED AUDIO                                    │
+└─────────────────────────────────┬───────────────────────────────────────────┘
+                                  │
+                                  ▼
+┌─────────────────────────────────────────────────────────────────────────────┐
+│                     4. REAL-TIME AUDIO LAYER                               │
+│                                                                             │
+│       INBOUND USER AUDIO                                                    │
+│               │                                                             │
+│               ▼                                                             │
+│        AUDIO PRE-PROCESSING                                                 │
+│                                                                             │
+│   AEC             ~5–20 ms processing                                      │
+│   DENOISE         ~5–30 ms processing                                      │
+│   NORMALIZE       ~1–5 ms                                                   │
+│                                                                             │
+│   ⚠ These should be parallel / streaming, not sequential blocking calls.   │
+│                                                                             │
+│               ▼                                                             │
+│         SPEECH ANALYSIS                                                     │
+│                                                                             │
+│   VAD             ~10–30 ms frame-level decision                           │
+│   BARGE-IN        ~50–200 ms detection target                              │
+│                                                                             │
+│   ENDPOINTING = THE BIG LATENCY COMPONENT                                   │
+│                                                                             │
+│   Fast endpoint             ~300–500 ms silence                            │
+│   Normal                    ~500–900 ms silence                            │
+│   Conservative              ~900–1,500 ms silence                          │
+│                                                                             │
+│   ⚠ Endpointing is adaptive, not a fixed number.                           │
+│                                                                             │
+│               ▼                                                             │
+│          STREAMING STT                                                      │
+│                                                                             │
+│   First partial transcript:      ~100–300 ms after speech begins           │
+│   Partial update cadence:        ~50–200 ms                                │
+│   Final stabilization:           ~100–500 ms after endpoint                │
+│                                                                             │
+└──────────────────────────────────────────┬──────────────────────────────────┘
+                                           │
+                                           ▼
+┌─────────────────────────────────────────────────────────────────────────────┐
+│                   5. CONVERSATION CONTROL PLANE                            │
+│                                                                             │
+│                  CONVERSATION ORCHESTRATOR                                 │
+│                                                                             │
+│   TURN MANAGER                   ~5–30 ms decision                         │
+│   DIALOGUE STATE                 ~1–10 ms in-memory                        │
+│   FAILURE MANAGER                ~1–20 ms                                  │
+│   CANCEL CONTROLLER              ~5–50 ms propagation                      │
+│                                                                             │
+│   IMPORTANT:                                                                │
+│   Session/database persistence should NOT block this path.                  │
+│                                                                             │
+│   Durable checkpoint: async in background                                   │
+│   Target synchronous overhead: ~10–50 ms                                   │
+│                                                                             │
+└──────────────────────────────────┬──────────────────────────────────────────┘
+                                   │
+                                   ▼
+┌─────────────────────────────────────────────────────────────────────────────┐
+│                       6. INTELLIGENCE ROUTER                               │
+│                                                                             │
+│   FINAL USER TURN                                                           │
+│        │                                                                    │
+│        ▼                                                                    │
+│   INTENT / ENTITY CLASSIFICATION                                            │
+│                                                                             │
+│   Local/small intent model:       ~5–50 ms                                 │
+│   Remote model:                   ~50–300+ ms                              │
+│                                                                             │
+│                  ┌────────────┼────────────┐                                │
+│                  ▼            ▼            ▼                                │
+│             FAST PATH      ACTION PATH   REASONING PATH                     │
+│                                                                             │
+│   FAST PATH                 ACTION PATH         REASONING PATH              │
+│                                                                             │
+│   Rules                     API / CRM           KB/RAG + LLM                │
+│   Templates                 DB                  Complex reasoning            │
+│   State                     Workflow                                            │
+│                                                                             │
+│   ~5–30 ms                  ~100–800 ms         ~500–3,000+ ms              │
+│                                                                             │
+│   CACHE HIT:                 ~5–50 ms           Retrieval: ~20–300 ms       │
+│   API P95 can be much        Workflow:           LLM first token:            │
+│   higher                     ~100–1,000 ms      ~200–1,500+ ms              │
+│                                                                             │
+└───────────────────┬────────────────┬────────────────┬───────────────────────┘
+                    │                │                │
+                    └────────────────┼────────────────┘
+                                     │
+                                     ▼
+┌─────────────────────────────────────────────────────────────────────────────┐
+│                     7. RESPONSE CONTROL LAYER                              │
+│                                                                             │
+│                         RESPONSE COMPOSER                                   │
+│                                                                             │
+│   Response policy                 ~5–30 ms                                 │
+│   Fact validation                 ~5–100 ms                                │
+│   Safety / formatting             ~5–50 ms                                 │
+│                                                                             │
+│   TARGET OVERHEAD:                ~20–100 ms                               │
+│                                                                             │
+│                               ▼                                             │
+│                         STREAMING RESPONSE                                  │
+│                               │                                             │
+│                               ▼                                             │
+│                           STREAMING TTS                                     │
+│                                                                             │
+│   Text received → first audio:    ~100–400 ms target                       │
+│   Poor/cloud dependency:          ~400–1,000+ ms                            │
+│                                                                             │
+│                               ▼                                             │
+│                        OUTBOUND AUDIO BUFFER                                │
+│                                                                             │
+│   Small playout buffer:           ~20–80 ms                                │
+│                                                                             │
+│                               ▼                                             │
+│                      ENCODE → RTP PACKETIZE                                │
+│                                                                             │
+│   Encode/packetize:               ~5–20 ms                                 │
+│                                                                             │
+│                               ▼                                             │
+│                              USER                                           │
+│                                                                             │
+│   Edge → carrier → phone:         ~30–150 ms typical                       │
+└─────────────────────────────────────────────────────────────────────────────┘
