@@ -1,0 +1,181 @@
+┌─────────────────────────────────────────────────────────────────────────────┐
+│                              USER ACCESS LAYER                              │
+│                                                                             │
+│   USER PHONE                                                                │
+│       │                                                                     │
+│       │ Normal Cellular Call                                                │
+│       ▼                                                                     │
+│   MOBILE RADIO / TOWER                                                      │
+│       │                                                                     │
+│       ▼                                                                     │
+│   CARRIER / IMS / PSTN                                                      │
+│                                                                             │
+│   ⚠ This layer may be weak. We cannot fix lost radio packets here.         │
+└───────────────────────────────┬─────────────────────────────────────────────┘
+                                │
+                                ▼
+┌─────────────────────────────────────────────────────────────────────────────┐
+│                         TELEPHONY ACCESS LAYER                              │
+│                                                                             │
+│   TELEPHONY PROVIDER / SBC                                                  │
+│                                                                             │
+│   Call Signalling                    Media                                  │
+│   SIP / equivalent                   RTP / SRTP                             │
+│        │                                │                                   │
+│        └──────────────┬─────────────────┘                                   │
+│                       ▼                                                     │
+│                CALL SESSION CREATED                                         │
+│                                                                             │
+└───────────────────────────────┬─────────────────────────────────────────────┘
+                                │
+                                ▼
+┌─────────────────────────────────────────────────────────────────────────────┐
+│                     EDGE REAL-TIME VOICE REGION                             │
+│                                                                             │
+│  ┌─────────────────────────────────────────────────────────────────────┐    │
+│  │                    REAL-TIME CALL CORE                             │    │
+│  │                                                                     │    │
+│  │  Media Session                                                     │    │
+│  │       │                                                             │    │
+│  │       ├── RTP Receiver / Sender                                    │    │
+│  │       ├── Codec Negotiation                                        │    │
+│  │       ├── Decode / Encode                                          │    │
+│  │       ├── Packet Reordering                                        │    │
+│  │       ├── Packet Loss Concealment                                  │    │
+│  │       └── Adaptive Jitter Buffer                                   │    │
+│  │                                                                     │    │
+│  └──────────────────────────────┬──────────────────────────────────────┘    │
+│                                 │                                           │
+│                         NORMALIZED AUDIO                                    │
+│                                 │                                           │
+│              ┌──────────────────┴──────────────────┐                        │
+│              ▼                                     ▼                        │
+│       INBOUND AUDIO                         OUTBOUND AUDIO                  │
+│       USER → AI                             AI → USER                       │
+└──────────────┬──────────────────────────────────────┬───────────────────────┘
+               │                                      │
+               ▼                                      ▲
+┌─────────────────────────────────────────────────────────────────────────────┐
+│                         REAL-TIME AUDIO LAYER                               │
+│                                                                             │
+│       INBOUND USER AUDIO                                                    │
+│               │                                                             │
+│               ▼                                                             │
+│        AUDIO PRE-PROCESSING                                                 │
+│               │                                                             │
+│      ┌────────┼───────────┐                                                 │
+│      ▼        ▼           ▼                                                 │
+│   AEC      DENOISE     NORMALIZE                                            │
+│      │        │           │                                                 │
+│      └────────┼───────────┘                                                 │
+│               ▼                                                             │
+│         SPEECH ANALYSIS                                                     │
+│               │                                                             │
+│      ┌────────┼─────────────┐                                               │
+│      ▼        ▼             ▼                                               │
+│     VAD    ENDPOINTING   BARGE-IN                                           │
+│      │        │             │                                               │
+│      │        │             └──────────┐                                    │
+│      │        │                        │                                    │
+│      ▼        ▼                        ▼                                    │
+│   STREAMING AUDIO              INTERRUPT CONTROLLER                         │
+│      │                                  │                                   │
+│      ▼                                  │                                   │
+│   STREAMING STT                         │                                   │
+│      │                                  │                                   │
+│      ├── PARTIAL TRANSCRIPTS ───────────┤                                   │
+│      │                                  │                                   │
+│      └── FINAL TRANSCRIPT ──────────────┘                                   │
+└──────────────────────────────────────────┬──────────────────────────────────┘
+                                           │
+                                           ▼
+┌─────────────────────────────────────────────────────────────────────────────┐
+│                       CONVERSATION CONTROL PLANE                            │
+│                                                                             │
+│                  ┌───────────────────────────────┐                          │
+│                  │   CONVERSATION ORCHESTRATOR   │                          │
+│                  └───────────────┬───────────────┘                          │
+│                                  │                                          │
+│       ┌──────────────────────────┼──────────────────────────┐               │
+│       ▼                          ▼                          ▼               │
+│  TURN MANAGER              DIALOGUE STATE            FAILURE MANAGER        │
+│                                                                             │
+│  • User speaking?          • Current step             • STT failure         │
+│  • Finished speaking?      • Context                  • API timeout         │
+│  • Wait or respond?        • Previous turns           • LLM failure         │
+│  • Interruption?           • Pending action           • Retry / fallback     │
+│                                                                             │
+│                         INTERRUPT EVENT                              │
+│                              │                                      │
+│                              ▼                                      │
+│                       CANCEL CONTROLLER                             │
+│                              │                                      │
+│               ┌──────────────┼──────────────┐                       │
+│               ▼              ▼              ▼                       │
+│            Stop TTS       Cancel LLM     Cancel API if safe         │
+│                                                                             │
+└──────────────────────────────────┬──────────────────────────────────────────┘
+                                   │
+                                   ▼
+┌─────────────────────────────────────────────────────────────────────────────┐
+│                          INTELLIGENCE ROUTER                                │
+│                                                                             │
+│                         FINAL USER TURN                                     │
+│                               │                                             │
+│                               ▼                                             │
+│                        INTENT / ENTITY                                      │
+│                        CLASSIFICATION                                       │
+│                               │                                             │
+│                  ┌────────────┼────────────┐                                │
+│                  │            │            │                                │
+│                  ▼            ▼            ▼                                │
+│             FAST PATH      ACTION PATH   REASONING PATH                     │
+│                                                                             │
+│          YES / NO           APIs          Knowledge                         │
+│          Simple intent      CRM           RAG                               │
+│          Menu action        Database      LLM                               │
+│          Call transfer      Workflow      Multi-step logic                   │
+│                                                                             │
+└───────────────────┬────────────────┬────────────────┬───────────────────────┘
+                    │                │                │
+                    ▼                ▼                ▼
+             ┌────────────┐   ┌──────────────┐  ┌───────────────┐
+             │ FAST ENGINE│   │ ACTION LAYER │  │ KNOWLEDGE/AI  │
+             │            │   │              │  │               │
+             │ Rules      │   │ API Router   │  │ Retriever     │
+             │ Templates  │   │ CRM          │  │ RAG           │
+             │ State      │   │ Workflow     │  │ LLM           │
+             └──────┬─────┘   └──────┬───────┘  └───────┬───────┘
+                    │                │                  │
+                    └────────────────┼──────────────────┘
+                                     │
+                                     ▼
+┌─────────────────────────────────────────────────────────────────────────────┐
+│                          RESPONSE CONTROL LAYER                             │
+│                                                                             │
+│                         RESPONSE COMPOSER                                   │
+│                               │                                             │
+│                    ┌──────────┴───────────┐                                 │
+│                    ▼                      ▼                                 │
+│              FACT VALIDATION         RESPONSE POLICY                         │
+│                                                                             │
+│              API verified?           Short answer?                           │
+│              Safe to speak?          Network mode?                           │
+│              Sensitive data?         Language?                               │
+│                                      Confirmation needed?                     │
+│                               │                                             │
+│                               ▼                                             │
+│                         STREAMING RESPONSE                                  │
+│                               │                                             │
+│                               ▼                                             │
+│                           STREAMING TTS                                     │
+│                               │                                             │
+│                               ▼                                             │
+│                        OUTBOUND AUDIO BUFFER                                │
+│                               │                                             │
+│                               ▼                                             │
+│                      ENCODE → RTP PACKETIZE                                │
+│                               │                                             │
+│                               ▼                                             │
+│                              USER                                           │
+└─────────────────────────────────────────────────────────────────────────────┘
