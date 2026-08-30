@@ -1,0 +1,29 @@
+             USER SPEAKING
+                  │
+        ┌─────────┼─────────┐
+        ▼         ▼         ▼
+       STT      Intent    Prefetch
+        │         │         │
+        └─────────┼─────────┘
+                  │
+           USER FINISHES
+                  │
+                  ▼
+          FAST COMMIT
+                  │
+                  ▼
+        LATENCY-AWARE ROUTING
+                  │
+        ┌─────────┼──────────┐
+        ▼         ▼          ▼
+      CACHE      API       LLM
+        │         │          │
+        └─────────┼──────────┘
+                  ▼
+            FIRST SAFE TEXT
+                  │
+                  ▼
+            STREAMING TTS
+                  │
+                  ▼
+                USER
