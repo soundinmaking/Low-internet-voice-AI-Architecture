@@ -1,0 +1,59 @@
+                              ┌──────────────────────┐
+                              │ CONVERSATION SESSION │
+                              │      SESSION ID      │
+                              └──────────┬───────────┘
+                                         │
+                 ┌───────────────────────┼────────────────────────┐
+                 │                       │                        │
+                 ▼                       ▼                        ▼
+          CALL SIGNALING           MEDIA TRANSPORT          CONVERSATION
+             SIP/WebRTC             RTP / UDP               ORCHESTRATOR
+                 │                       │                        │
+                 │                       ▼                        │
+                 │                AUDIO INGRESS                  │
+                 │                       │                        │
+                 │                 JITTER BUFFER                 │
+                 │                       │                        │
+                 │             AUDIO PROCESSING                  │
+                 │                       │                        │
+                 │        ┌──────────────┼──────────────┐         │
+                 │        │              │              │         │
+                 │       VAD       NOISE REDUCTION   BARGE-IN     │
+                 │        │              │              │         │
+                 │        └──────────────┼──────────────┘         │
+                 │                       │                        │
+                 │                       ▼                        │
+                 │                  STREAMING STT                 │
+                 │                       │                        │
+                 │              PARTIAL TRANSCRIPTS ──────────────┤
+                 │                       │                        │
+                 │                       ▼                        │
+                 │                  TURN MANAGER ◄────────────────┤
+                 │                       │                        │
+                 │                 TURN COMPLETE                  │
+                 │                       │                        │
+                 │                       ▼                        │
+                 │                INTENT DETECTION                │
+                 │                       │                        │
+                 │                       ▼                        │
+                 │               RESPONSE ENGINE                  │
+                 │                       │                        │
+                 │          ┌────────────┼────────────┐           │
+                 │          ▼            ▼            ▼           │
+                 │        KB/RAG        APIs         LLM          │
+                 │          └────────────┼────────────┘           │
+                 │                       │                        │
+                 │                       ▼                        │
+                 │                  STREAMING TTS                  │
+                 │                       │                        │
+                 │                       ▼                        │
+                 │                 AUDIO EGRESS                   │
+                 │                       │                        │
+                 │                RTP / UDP STREAM                │
+                 │                       │                        │
+                 └──────────────────────► USER PHONE ◄────────────┘
+                                              │
+                                              │
+                                    NEXT USER TURN
+                                              │
+                                              └─────── LOOP
