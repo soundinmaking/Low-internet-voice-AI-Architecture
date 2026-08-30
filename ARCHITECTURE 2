@@ -1,0 +1,56 @@
+                         USER PHONE
+                             │
+                        CELLULAR VOICE
+                             │
+                             ▼
+                   ┌──────────────────┐
+                   │ TELECOM GATEWAY  │
+                   │ SIP + RTP        │
+                   └────────┬─────────┘
+                            │
+                    NEAREST EDGE REGION
+                            │
+          ┌─────────────────┼──────────────────┐
+          ▼                 ▼                  ▼
+     MEDIA ENGINE      NETWORK MONITOR     SESSION STORE
+          │                 │                  │
+          │                 │                  │
+          ▼                 │                  │
+      JITTER BUFFER          │                  │
+          │                  │                  │
+          ▼                  │                  │
+     AUDIO FRAME BUS ◄───────┘                  │
+          │                                     │
+    ┌─────┼─────────────┐                       │
+    ▼     ▼             ▼                       │
+   VAD  DENOISE      BARGE-IN                   │
+    │     │             │                       │
+    └─────┼─────────────┘                       │
+          │                                     │
+          ▼                                     │
+    STREAMING EDGE STT                          │
+          │                                     │
+          ├── Partial text ──► Predict intent   │
+          │                         │            │
+          │                         ├─ Prefetch │
+          │                         │            │
+          ▼                         ▼            │
+      TURN MANAGER ─────────► CONVERSATION ORCHESTRATOR
+                                          │
+                            ┌─────────────┼─────────────┐
+                            │             │             │
+                            ▼             ▼             ▼
+                         FAST PATH       KB/API      LLM PATH
+                            │             │             │
+                            └─────────────┼─────────────┘
+                                          │
+                                    STREAMING RESPONSE
+                                          │
+                                          ▼
+                                     STREAMING TTS
+                                          │
+                                          ▼
+                                       RTP AUDIO
+                                          │
+                                          ▼
+                                       USER
