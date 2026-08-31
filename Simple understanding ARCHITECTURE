@@ -7,14 +7,14 @@
                  │                       │                        │
                  ▼                       ▼                        ▼
           CALL SIGNALING           MEDIA TRANSPORT          CONVERSATION
-             SIP/WebRTC             RTP / UDP               ORCHESTRATOR
+             SIP/WebRTC/websocket   TCP / UDP               ORCHESTRATOR
                  │                       │                        │
                  │                       ▼                        │
-                 │                AUDIO INGRESS                  │
+                 │                AUDIO INGRESS                   │
                  │                       │                        │
-                 │                 JITTER BUFFER                 │
+                 │                 JITTER BUFFER                  │
                  │                       │                        │
-                 │             AUDIO PROCESSING                  │
+                 │               AUDIO PROCESSING                 │
                  │                       │                        │
                  │        ┌──────────────┼──────────────┐         │
                  │        │              │              │         │
@@ -44,7 +44,7 @@
                  │          └────────────┼────────────┘           │
                  │                       │                        │
                  │                       ▼                        │
-                 │                  STREAMING TTS                  │
+                 │                  STREAMING TTS                 │
                  │                       │                        │
                  │                       ▼                        │
                  │                 AUDIO EGRESS                   │
@@ -57,3 +57,4 @@
                                     NEXT USER TURN
                                               │
                                               └─────── LOOP
+
