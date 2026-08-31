@@ -1,0 +1,79 @@
+┌────────────────────────────────────────────────────────────────────────────┐
+│ RURAL USER — CELLULAR VOICE (not "internet")                                │
+│                                                                              │
+│  USER PHONE (2G/EDGE/VoLTE, JioPhone/entry Android, single MEMS mic)        │
+│       │  AMR-NB 5.9–7.4kbps, 8kHz, 200–3400Hz band-limited                  │
+│       ▼                                                                     │
+│  MOBILE TOWER → OPERATOR CORE (Jio/Airtel/VI voice network)                 │
+│       │  ← degradation happens HERE: jitter, packet loss, codec loss —      │
+│       │     this is a codec/RF problem, not a "user bandwidth" problem      │
+└───────┼───────────────────────────────────────────────────────────────────┘
+        │ Carrier interconnect / PSTN-IMS
+        ▼
+┌────────────────────────────────────────────────────────────────────────────┐
+│ INDIA-NATIVE TELEPHONY LAYER  (Exotel / Ozonetel / Knowlarity / Plivo)      │
+│                                                                              │
+│  • TRAI DLT-registered SIP trunk (mandatory for outbound; template-approved)│
+│  • Local Indian DIDs, India-optimized carrier routing                       │
+│  • WebSocket/streaming media API direct to your app                        │
+│    (e.g. sub-250ms full voice→STT→LLM→TTS→voice loop achievable            │
+│     specifically because signaling stays inside India)                     │
+│  • Call recording captured HERE for DPDP/RBI compliance, not downstream    │
+└───────────────────────────────┬───────────────────────────────────────────┘
+                                 │  SRTP over WebSocket / vSIP — stays in-country
+                                 ▼
+┌────────────────────────────────────────────────────────────────────────────┐
+│ MEDIA / RESILIENCE LAYER — hosted in ap-south-1 (Mumbai) or Hyderabad,     │
+│ NOT in your "good internet zone" if that means a foreign region           │
+│                                                                              │
+│  • Jitter buffer sized for VoLTE/EDGE congestion patterns (adaptive,       │
+│    not fixed) — trades latency for loss tolerance dynamically             │
+│  • Packet loss concealment tuned for AMR-NB burst loss, not generic PLC   │
+│  • Comfort-noise / silence-detection tolerant of ambient rural noise      │
+│    (wind, livestock, open-field SNR ~58–62dB)                             │
+│  • Barge-in / echo cancellation robust to narrowband signal                │
+└───────────────────────────────┬───────────────────────────────────────────┘
+                                ▼
+┌────────────────────────────────────────────────────────────────────────────┐
+│ AGENT RUNTIME — same India region as media layer (no cross-region hop)     │
+│                                                                              │
+│  VAD → Endpointing → Streaming STT → Turn Manager → Orchestrator → TTS     │
+│                                                                              │
+│  CRITICAL FIX: STT must be a model trained/fine-tuned on 8kHz narrowband   │
+│  telephony audio + Indian languages/accents — not a generic wideband      │
+│  Whisper-class model fed downsampled audio (that mismatch alone inflates  │
+│  WER independent of network quality)                                      │
+│                                                                              │
+│  SESSION STATE: persisted (not in-memory only) keyed by caller number,    │
+│  so a dropped call + redial resumes context instead of restarting         │
+└───────────────────────────────┬───────────────────────────────────────────┘
+                                ▼
+┌────────────────────────────────────────────────────────────────────────────┐
+│ AGENT INTELLIGENCE — Router/Policy with GRACEFUL DEGRADATION               │
+│                                                                              │
+│  FAST PATH (rules/cache/templates) ── used FIRST for common rural intents  │
+│       │        (crop prices, order status, appointment confirm etc.)      │
+│       │        → lowest latency, no LLM round-trip needed                 │
+│       ▼                                                                     │
+│  LLM PATH (in-region inference, ap-south-1/Hyderabad) — for open queries  │
+│       │                                                                     │
+│       ▼                                                                     │
+│  TOOL/API layer (CRM/DB/workflow) — same region                           │
+│                                                                              │
+│  FALLBACK: if ASR confidence low / LLM timeout → clarifying question in   │
+│  local language OR route to human agent — never silent failure           │
+└───────────────────────────────┬───────────────────────────────────────────┘
+                                ▼
+┌────────────────────────────────────────────────────────────────────────────┐
+│ RESPONSE — streaming TTS in local language, short utterances               │
+│ (long TTS chunks are more likely to be cut by a call drop mid-sentence)   │
+│  → back through telephony layer → carrier → user phone                    │
+└────────────────────────────────────────────────────────────────────────────┘
+
+CROSS-CUTTING LAYERS (missing entirely from original diagram):
+  • DPDP Act 2023 compliance: consent capture, data residency in India,      
+    right-to-erasure — data must not leave Indian region                    
+  • Observability: per-call ASR confidence + jitter/loss metrics logged, so  
+    you can tell "bad call" from "bad model" in production                  
+  • Retry/resume: on call drop, session state lets a redial continue,        
+    not restart, the conversation
